@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบติดตามงาน - แอสปาย เอราวัณ ทาวเวอร์ บี</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-indigo-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-2">
+            <div>
+                <h1 class="text-xl font-bold">📋 ระบบติดตามงานโครงการ แอสปาย เอราวัณ ทาวเวอร์ บี</h1>
+                <p class="text-xs text-indigo-200">ระบบบริหารจัดการและติดตามงานนิติบุคคลอาคารชุด</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="sync-status" class="text-xs bg-indigo-700 px-3 py-1 rounded-full text-indigo-100 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> พร้อมใช้งาน
+                </span>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <div class="max-w-7xl mx-auto px-4 flex overflow-x-auto space-x-1 border-t border-indigo-800">
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-white text-white whitespace-nowrap transition">📊 Dashboard</button>
+            <button onclick="switchTab('members')" id="btn-members" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-indigo-200 hover:text-white whitespace-nowrap transition">👥 สมาชิก</button>
+            <button onclick="switchTab('gas')" id="btn-gas" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-indigo-200 hover:text-white whitespace-nowrap transition">🔌 การเชื่อมต่อ GAS</button>
+            <button onclick="switchTab('telegram')" id="btn-telegram" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-indigo-200 hover:text-white whitespace-nowrap transition">🤖 ตั้งค่า Telegram & แจ้งเตือน</button>
+            <button onclick="switchTab('backup')" id="btn-backup" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-indigo-200 hover:text-white whitespace-nowrap transition">📂 การทำสำเนา</button>
+            <button onclick="switchTab('settings')" id="btn-settings" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-indigo-200 hover:text-white whitespace-nowrap transition">⚙️ การตั้งค่าโครงการ</button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full">
+        
+        <!-- TAB 1: DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- สรุปสถิติ & กราฟ -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-1 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800 mb-3">📈 สัดส่วนสถานะงาน</h3>
+                        <div class="w-full h-48 flex justify-center items-center">
+                            <canvas id="taskChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100 text-center">
+                        <div class="bg-slate-50 p-2 rounded-lg">
+                            <p class="text-[10px] text-slate-500">ทั้งหมด</p>
+                            <p id="total-tasks" class="text-lg font-bold text-slate-800">-</p>
+                        </div>
+                        <div class="bg-amber-50 p-2 rounded-lg">
+                            <p class="text-[10px] text-amber-600">รอดำเนินการ</p>
+                            <p id="pending-tasks" class="text-lg font-bold text-amber-600">-</p>
+                        </div>
+                        <div class="bg-emerald-50 p-2 rounded-lg">
+                            <p class="text-[10px] text-emerald-600">เสร็จสิ้น</p>
+                            <p id="completed-tasks" class="text-lg font-bold text-emerald-600">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ฟอร์มบันทึกงานใหม่ -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
+                    <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">➕ บันทึกงานใหม่เข้า Google Sheets</h2>
+                    <form id="taskForm" onsubmit="submitForm(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">วันที่กำหนด (Due Date)</label>
+                            <input type="date" id="taskDate" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">ผู้รับผิดชอบ</label>
+                            <input type="text" id="taskAssignee" placeholder="ระบุชื่อผู้รับผิดชอบ" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">รายการงาน / เรื่อง</label>
+                            <input type="text" id="taskName" placeholder="เช่น ตรวจสอบระบบลิฟต์โดยสารประจำสัปดาห์" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">สถานะ</label>
+                            <select id="taskStatus" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                                <option value="รอดำเนินการ">รอดำเนินการ</option>
+                                <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
+                                <option value="เสร็จสิ้น">เสร็จสิ้น</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" id="submitBtn" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+                                บันทึกข้อมูล
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ตารางรายการ พร้อมตัวกรองและส่งออกรายงาน -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-center gap-3">
+                    <h2 class="font-bold text-slate-800 text-base">📋 รายการติดตามงานโครงการ</h2>
+                    <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                        <input type="text" id="searchInput" oninput="filterTable()" placeholder="🔍 ค้นหางาน / ผู้รับผิดชอบ..." class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 w-full sm:w-44">
+                        <select id="statusFilter" onchange="filterTable()" class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500">
+                            <option value="">ทุกสถานะ</option>
+                            <option value="รอดำเนินการ">รอดำเนินการ</option>
+                            <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
+                            <option value="เสร็จสิ้น">เสร็จสิ้น</option>
+                        </select>
+                        <button onclick="loadData()" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs hover:bg-slate-200 transition">🔄 รีเฟรช</button>
+                        <div class="flex gap-1 border-l pl-2 border-slate-300">
+                            <button onclick="exportToExcel()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-700 transition">📥 Excel</button>
+                            <button onclick="exportToCSV()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 transition">📄 CSV</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse" id="taskTable">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-xs">
+                                <th class="px-4 py-3">วันที่กำหนด</th>
+                                <th class="px-4 py-3">รายการงาน</th>
+                                <th class="px-4 py-3">ผู้รับผิดชอบ</th>
+                                <th class="px-4 py-3">สถานะ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-table-body" class="divide-y divide-slate-200 text-xs text-slate-700">
+                            <tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">กำลังโหลดข้อมูล...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: MEMBERS -->
+        <div id="tab-members" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-4xl mx-auto">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">👥 จัดการรายชื่อทีมงานนิติบุคคล</h2>
+                <p class="text-sm text-slate-600">รายชื่อผู้มีสิทธิ์จัดการระบบติดตามงานโครงการ แอสปาย เอราวัณ ทาวเวอร์ บี</p>
+            </div>
+        </div>
+
+        <!-- TAB 3: GAS CONNECTION -->
+        <div id="tab-gas" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-2xl mx-auto space-y-4">
+                <h2 class="text-lg font-bold text-slate-800 border-b pb-3">🔌 ตั้งค่าการเชื่อมต่อ Google Apps Script (GAS)</h2>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Google Apps Script Web App URL</label>
+                    <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="saveGasUrl()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">บันทึก URL</button>
+                    <button onclick="testConnection()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-200">ทดสอบการเชื่อมต่อ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: TELEGRAM SETTINGS & DUE DATE ALERTS (อัปเดตใหม่) -->
+        <div id="tab-telegram" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-2xl mx-auto space-y-5">
+                <h2 class="text-lg font-bold text-slate-800 border-b pb-3">🤖 ตั้งค่าการแจ้งเตือน Telegram & กำหนดเวลาครบกำหนด</h2>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Telegram Bot Token</label>
+                    <input type="text" id="tgTokenInput" placeholder="เช่น 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Telegram Chat ID</label>
+                    <input type="text" id="tgChatIdInput" placeholder="เช่น -100123456789 หรือ @channel_name" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
+                
+                <!-- ตั้งค่าการแจ้งเตือนครบกำหนด (Due Date Alert Settings) -->
+                <div class="pt-3 border-t border-slate-200 space-y-3">
+                    <h3 class="font-bold text-slate-800 text-sm">⏰ ตั้งค่าช่วงเวลาแจ้งเตือนครบกำหนด (Due Date Alerts)</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <label class="flex items-center gap-2 cursor-pointer text-sm bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <input type="checkbox" id="alert7Days" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked>
+                            <span>ก่อน 7 วัน</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-sm bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <input type="checkbox" id="alert5Days" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked>
+                            <span>ก่อน 5 วัน</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-sm bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <input type="checkbox" id="alert3Days" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked>
+                            <span>ก่อน 3 วัน</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-sm bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <input type="checkbox" id="alert1Day" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked>
+                            <span>ก่อน 1 วัน</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-sm bg-indigo-50 p-2 rounded-lg border border-indigo-200 font-semibold text-indigo-900 col-span-2 sm:col-span-2">
+                            <input type="checkbox" id="alertOnDue" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked>
+                            <span>🔥 On Due (วันครบกำหนดพอดี)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button onclick="saveTelegramSettings()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">บันทึกค่าการแจ้งเตือน</button>
+                    <button onclick="sendTestTelegram()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">ส่งข้อความทดสอบ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: BACKUP -->
+        <div id="tab-backup" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-2xl mx-auto text-center space-y-4">
+                <h2 class="text-lg font-bold text-slate-800 border-b pb-3 text-left">📂 ระบบทำสำเนาข้อมูล</h2>
+                <button onclick="window.open('https://docs.google.com/spreadsheets/d/1o36rl7utF6XZAl7AZhUqX3RNIFGNBESesIy965gWQRw/copy', '_blank')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700">
+                    📥 ทำสำเนา Google Sheets (Template)
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 6: SETTINGS -->
+        <div id="tab-settings" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-2xl mx-auto space-y-4">
+                <h2 class="text-lg font-bold text-slate-800 border-b pb-3">⚙️ ตั้งค่าโครงการ</h2>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อโครงการ</label>
+                    <input type="text" value="แอสปาย เอราวัณ ทาวเวอร์ บี" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50" readonly>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JavaScript Control & Telegram Logic -->
+    <script>
+        let WEB_APP_URL = localStorage.getItem('GAS_URL') || "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+        document.getElementById('gasUrlInput').value = WEB_APP_URL.includes("YOUR_GOOGLE") ? "" : WEB_APP_URL;
+
+        // โหลดค่า Telegram & Due Date Alerts จาก LocalStorage
+        document.getElementById('tgTokenInput').value = localStorage.getItem('TG_TOKEN') || "";
+        document.getElementById('tgChatIdInput').value = localStorage.getItem('TG_CHAT_ID') || "";
+        document.getElementById('alert7Days').checked = localStorage.getItem('ALERT_7') !== 'false';
+        document.getElementById('alert5Days').checked = localStorage.getItem('ALERT_5') !== 'false';
+        document.getElementById('alert3Days').checked = localStorage.getItem('ALERT_3') !== 'false';
+        document.getElementById('alert1Day').checked = localStorage.getItem('ALERT_1') !== 'false';
+        document.getElementById('alertOnDue').checked = localStorage.getItem('ALERT_ONDUE') !== 'false';
+
+        let allTasksData = [];
+        let filteredTasksData = [];
+        let taskChartInstance = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('border-white', 'text-white');
+                el.classList.add('border-transparent', 'text-indigo-200');
+            });
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`btn-${tabId}`);
+            activeBtn.classList.remove('border-transparent', 'text-indigo-200');
+            activeBtn.classList.add('border-white', 'text-white');
+        }
+
+        function saveGasUrl() {
+            const url = document.getElementById('gasUrlInput').value.trim();
+            if(url) {
+                localStorage.setItem('GAS_URL', url);
+                WEB_APP_URL = url;
+                alert("บันทึก URL สำเร็จ!");
+                loadData();
+            } else { alert("กรุณากรอก URL ให้ถูกต้อง"); }
+        }
+
+        function saveTelegramSettings() {
+            const token = document.getElementById('tgTokenInput').value.trim();
+            const chatId = document.getElementById('tgChatIdInput').value.trim();
+            
+            localStorage.setItem('TG_TOKEN', token);
+            localStorage.setItem('TG_CHAT_ID', chatId);
+            localStorage.setItem('ALERT_7', document.getElementById('alert7Days').checked);
+            localStorage.setItem('ALERT_5', document.getElementById('alert5Days').checked);
+            localStorage.setItem('ALERT_3', document.getElementById('alert3Days').checked);
+            localStorage.setItem('ALERT_1', document.getElementById('alert1Day').checked);
+            localStorage.setItem('ALERT_ONDUE', document.getElementById('alertOnDue').checked);
+
+            alert("บันทึกการตั้งค่าการแจ้งเตือนครบกำหนดสำเร็จ!");
+        }
+
+        async function sendTestTelegram() {
+            const token = document.getElementById('tgTokenInput').value.trim();
+            const chatId = document.getElementById('tgChatIdInput').value.trim();
+            if(!token || !chatId) { alert("กรุณากรอก Bot Token และ Chat ID ให้ครบถ้วน"); return; }
+
+            alert("กำลังส่งข้อความทดสอบเข้า Telegram...");
+            try {
+                const message = encodeURIComponent("🔔 ทดสอบระบบแจ้งเตือนครบกำหนด: แอสปาย เอราวัณ ทาวเวอร์ บี เชื่อมต่อ Telegram สำเร็จ!");
+                const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${message}`);
+                const data = await res.json();
+                if(data.ok) { alert("ส่งข้อความทดสอบสำเร็จ!"); } 
+                else { alert("ส่งไม่สำเร็จ: " + (data.description || 'ตรวจสอบ Token/Chat ID')); }
+            } catch(e) { alert("เกิดข้อผิดพลาดในการเชื่อมต่อ Telegram API"); }
+        }
+
+        async function testConnection() {
+            if(WEB_APP_URL.includes("YOUR_GOOGLE")) { alert("กรุณาใส่ GAS URL ก่อน"); return; }
+            try {
+                const res = await fetch(WEB_APP_URL);
+                const data = await res.json();
+                alert("เชื่อมสำเร็จ! ดึงข้อมูลได้ " + data.length + " รายการ");
+            } catch(e) { alert("เชื่อมต่อไม่สำเร็จ ตรวจสอบสิทธิ์ Deploy (Anyone)"); }
+        }
+
+        document.getElementById('taskDate').valueAsDate = new Date();
+
+        async function loadData() {
+            const statusEl = document.getElementById('sync-status');
+            const tbody = document.getElementById('task-table-body');
+            
+            if(WEB_APP_URL.includes("YOUR_GOOGLE")) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-amber-500">กรุณาไปที่แท็บ 'ตั้งค่า Telegram & แจ้งเตือน' เพื่อใส่ URL และตั้งค่าก่อนใช้งาน</td></tr>`;
+                return;
+            }
+
+            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> กำลังซิงค์...`;
+            try {
+                const response = await fetch(WEB_APP_URL);
+                allTasksData = await response.json();
+                filteredTasksData = allTasksData;
+                renderTable(filteredTasksData);
+                updateDashboardStats(allTasksData);
+                statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> ซิงค์สำเร็จ`;
+            } catch (error) {
+                statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400"></span> เชื่อมต่อล้มเหลว`;
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-red-400">ไม่สามารถดึงข้อมูลได้</td></tr>`;
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('task-table-body');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">ไม่พบรายการข้อมูล</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = "";
+            data.forEach(row => {
+                const statusBadge = row.status === 'เสร็จสิ้น' 
+                    ? 'bg-emerald-100 text-emerald-700' 
+                    : (row.status === 'กำลังดำเนินการ' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700');
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap">${row.date || '-'}</td>
+                    <td class="px-4 py-3 font-medium text-slate-900">${row.taskName || '-'}</td>
+                    <td class="px-4 py-3">${row.assignee || '-'}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusBadge}">${row.status || 'รอดำเนินการ'}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const statusVal = document.getElementById('statusFilter').value;
+            filteredTasksData = allTasksData.filter(row => {
+                const matchKeyword = (row.taskName && row.taskName.toLowerCase().includes(keyword)) || 
+                                     (row.assignee && row.assignee.toLowerCase().includes(keyword));
+                const matchStatus = statusVal === "" || row.status === statusVal;
+                return matchKeyword && matchStatus;
+            });
+            renderTable(filteredTasksData);
+        }
+
+        function exportToExcel() {
+            if (!filteredTasksData || filteredTasksData.length === 0) { alert("ไม่มีข้อมูลสำหรับส่งออก"); return; }
+            let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body><table border="1">
+                <tr style="background-color: #4f46e5; color: #ffffff;"><th>วันที่กำหนด</th><th>รายการงาน</th><th>ผู้รับผิดชอบ</th><th>สถานะ</th></tr>`;
+            filteredTasksData.forEach(row => {
+                html += `<tr><td>${row.date||''}</td><td>${row.taskName||''}</td><td>${row.assignee||''}</td><td>${row.status||''}</td></tr>`;
+            });
+            html += `</table></body></html>`;
+            const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `รายงานครบกำหนด_${new Date().toISOString().slice(0,10)}.xls`;
+            link.click();
+        }
+
+        function exportToCSV() {
+            if (!filteredTasksData || filteredTasksData.length === 0) { alert("ไม่มีข้อมูลสำหรับส่งออก"); return; }
+            let csv = "\uFEFFวันที่กำหนด,รายการงาน,ผู้รับผิดชอบ,สถานะ\n";
+            filteredTasksData.forEach(row => {
+                csv += `"${(row.date||'')}","${(row.taskName||'')}","${(row.assignee||'')}","${(row.status||'')}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `รายงานครบกำหนด_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        function updateDashboardStats(data) {
+            let total = data.length;
+            let completed = data.filter(r => r.status === 'เสร็จสิ้น').length;
+            let inProgress = data.filter(r => r.status === 'กำลังดำเนินการ').length;
+            let pending = data.filter(r => r.status === 'รอดำเนินการ' || !r.status).length;
+
+            document.getElementById('total-tasks').textContent = total;
+            document.getElementById('completed-tasks').textContent = completed;
+            document.getElementById('pending-tasks').textContent = pending + inProgress;
+
+            const ctx = document.getElementById('taskChart').getContext('2d');
+            if (taskChartInstance) { taskChartInstance.destroy(); }
+            taskChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['เสร็จสิ้น', 'กำลังดำเนินการ', 'รอดำเนินการ'],
+                    datasets: [{ data: [completed, inProgress, pending], backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'], borderWidth: 2 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, family: 'Sarabun' } } } } }
+            });
+        }
+
+        async function submitForm(e) {
+            e.preventDefault();
+            if(WEB_APP_URL.includes("YOUR_GOOGLE")) { alert("กรุณาตั้งค่า GAS URL ก่อนบันทึก"); return; }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = "กำลังบันทึก...";
+
+            // ส่งค่าตั้งค่าการแจ้งเตือนครบกำหนดไปกับฟอร์ม
+            const formData = {
+                date: document.getElementById('taskDate').value,
+                taskName: document.getElementById('taskName').value,
+                assignee: document.getElementById('taskAssignee').value,
+                status: document.getElementById('taskStatus').value,
+                tgToken: localStorage.getItem('TG_TOKEN') || "",
+                tgChatId: localStorage.getItem('TG_CHAT_ID') || "",
+                alertSettings: {
+                    days7: localStorage.getItem('ALERT_7') !== 'false',
+                    days5: localStorage.getItem('ALERT_5') !== 'false',
+                    days3: localStorage.getItem('ALERT_3') !== 'false',
+                    days1: localStorage.getItem('ALERT_1') !== 'false',
+                    onDue: localStorage.getItem('ALERT_ONDUE') !== 'false'
+                }
+            };
+
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                alert("บันทึกข้อมูลและส่งแจ้งเตือนสำเร็จ!");
+                document.getElementById('taskForm').reset();
+                document.getElementById('taskDate').valueAsDate = new Date();
+                setTimeout(loadData, 1500);
+            } catch (error) {
+                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "บันทึกข้อมูล";
+            }
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
